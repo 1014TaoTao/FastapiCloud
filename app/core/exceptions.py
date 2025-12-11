@@ -7,8 +7,8 @@ from typing import Any, Dict, Optional
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from contextvars import ContextVar
 
-from core.response import ErrorResponse
-from .logger import get_logger
+from app.core.response import ErrorResponse
+from app.core.logger import get_logger
 
 # 创建请求ID上下文变量
 request_id_ctx_var: ContextVar[str] = ContextVar("request_id", default="")
@@ -171,8 +171,8 @@ def register_exception_handlers(app) -> None:
         
         return ErrorResponse(
             data=response_data,
-            message=exc.message,
-            status_code=exc.status_code
+            msg=exc.message,
+            code=exc.status_code
         )
     
     @app.exception_handler(HTTPException)
@@ -200,8 +200,8 @@ def register_exception_handlers(app) -> None:
         
         return ErrorResponse(
             data=response_data,
-            message=detail_str,
-            status_code=exc.status_code
+            msg=detail_str,
+            code=exc.status_code
         )
     
     @app.exception_handler(StarletteHTTPException)
@@ -225,8 +225,8 @@ def register_exception_handlers(app) -> None:
         
         return ErrorResponse(
             data=response_data,
-            message=str(exc.detail),
-            status_code=exc.status_code
+            msg=str(exc.detail),
+            code=exc.status_code
         )
     
     @app.exception_handler(Exception)
@@ -251,8 +251,8 @@ def register_exception_handlers(app) -> None:
         
         return ErrorResponse(
             data=response_data,
-            message="服务器内部错误",
-            status_code=500
+            msg="服务器内部错误",
+            code=500
         )
 
 

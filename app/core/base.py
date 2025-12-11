@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from typing import Any
+from fastapi import status
 from sqlmodel import SQLModel, Field
 from datetime import datetime
 
@@ -22,3 +24,10 @@ class JWTOutSchema(SQLModel):
     access_token: str
     token_type: str
     expires_in: float
+
+
+class BaseResponse(SQLModel):
+    """基础响应类"""
+    code: int = Field(default=status.HTTP_200_OK, description="HTTP状态码")
+    msg: str = Field(default="成功", description="响应消息")
+    data: Any = Field(default=None, description="响应数据")

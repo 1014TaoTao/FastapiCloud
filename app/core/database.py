@@ -7,8 +7,8 @@ from sqlalchemy.engine.base import Engine
 from sqlalchemy.orm import sessionmaker
 from collections.abc import Generator
 
-from config import settings
-from .logger import logger
+from app.core.config import settings
+from app.core.logger import logger
 
 
 # 同步数据库引擎（兼容旧代码）
@@ -47,9 +47,9 @@ async def create_db_and_tables() -> None:
     try:
         SQLModel.metadata.create_all(bind=engine)    
         logger.info("数据库表创建成功")
-        from app.api.v1.model import User
+        from app.api.model import User
         # 创建默认用户
-        from core.security import set_password_hash
+        from app.core.security import set_password_hash
         default_user = User(
             name="管理员",
             username="admin",

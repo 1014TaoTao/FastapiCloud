@@ -6,15 +6,15 @@ from sqlmodel import Session, select, asc
 from datetime import datetime, timedelta
 from fastapi.security import OAuth2PasswordRequestForm
 
-from core.config import settings
-from core.logger import logger
-from core.security import (
+from app.core.config import settings
+from app.core.logger import logger
+from app.core.security import (
     create_access_token,
     set_password_hash,
     verify_password,
 )
-from core.base import JWTPayloadSchema, JWTOutSchema
-from .model import User, UserQuerySchema, UserInSchema
+from app.core.base import JWTPayloadSchema, JWTOutSchema
+from app.api.model import User, UserQuerySchema, UserInSchema
 
 
 class UserService:

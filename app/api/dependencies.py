@@ -5,9 +5,9 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session, select
 
-from core.database import get_db
-from core.security import decode_access_token
-from .model import User
+from app.core.database import get_db
+from app.core.security import decode_access_token
+from app.api.model import User
 
 
 # OAuth2密码承载令牌

@@ -1,17 +1,19 @@
 # -*- coding: utf-8 -*-
 
+from fastapi_pagination.default import Page
+from app.api.model import User
 from sqlmodel import Session
 from typing import Dict, Union
 from fastapi import Request, APIRouter, Depends, Path, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.templating import Jinja2Templates
 from fastapi_pagination import Page, Params
 
-from core.logger import logger
-from core.database import get_db, DB
-from core.response import ExceptResponse, ErrorResponse, SuccessResponse
-from core.base import JWTOutSchema
+from app.core.logger import logger
+from app.core.database import get_db, DB
+from app.core.response import BaseResponse, ExceptResponse, ErrorResponse, SuccessResponse
+from app.core.base import JWTOutSchema
 from ..dependencies import get_current_user, CurrentUser
 from ..model import User, UserQuerySchema, UserInSchema
 from ..service import UserService
@@ -25,15 +27,13 @@ async def health_check() -> bool:
     return True
 
 @router.get("/", summary="首页页面")
-async def home(
-    request: Request
-):
-    return templates.TemplateResponse(request=request, name="home.html")
+async def home():
+    return FileResponse("static/index.html")
 
 @router.post(
     path="/login", 
     summary="用户登录", 
-    response_model=JWTOutSchema,
+    response_model=BaseResponse,
     status_code=status.HTTP_200_OK,
     description="用户登录接口，验证用户名和密码并返回JWT令牌"
 )
@@ -55,12 +55,12 @@ async def login(
         return SuccessResponse(data=login_token.model_dump())
     except Exception as e:
         logger.error(f"登录异常: {e}", exc_info=True)
-        raise ExceptResponse(message="登录失败，请稍后重试")
+        raise ExceptResponse(msg="登录失败，请稍后重试")
 
 @router.post(
     path="/logout", 
     summary="用户登出", 
-    response_model=dict,
+    response_model=BaseResponse,
     status_code=status.HTTP_200_OK,
     description="用户登出系统",
 )
@@ -75,15 +75,15 @@ async def logout(
         return SuccessResponse(data=True)
     except ValueError as e:
         logger.error(f"用户{current_user.username}登出参数错误: {e}")
-        return ErrorResponse(message=str(e))
+        return ErrorResponse(msg=str(e), code=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"用户{current_user.username}登出异常: {e}", exc_info=True)
-        raise ExceptResponse(message="登出失败，请稍后重试")
+        raise ExceptResponse(msg="登出失败，请稍后重试")
 
 @router.get(
     path="/users", 
     summary="获取用户列表", 
-    response_model=Page[User],
+    response_model=BaseResponse,
     status_code=status.HTTP_200_OK,
     description="获取用户分页列表，支持筛选和排序",
     dependencies=[Depends(get_current_user)]
@@ -94,16 +94,16 @@ async def get_users(
     params: Params = Depends(),
 ) -> JSONResponse:
     try:
-        users = UserService.user_list(db, query, params)
+        users: Page[User] = UserService.user_list(db, query, params)
         return SuccessResponse(data=users.dict())
     except Exception as e:
         logger.error(f"查询用户列表异常: {e}", exc_info=True)
-        raise ExceptResponse(message="查询用户列表失败，请稍后重试")
+        raise ExceptResponse(msg="查询用户列表失败，请稍后重试")
 
 @router.post(
     path="/user", 
     summary="创建用户", 
-    response_model=User,
+    response_model=BaseResponse,
     status_code=status.HTTP_201_CREATED,
     description="创建新用户接口",
     dependencies=[Depends(get_current_user)]
@@ -115,18 +115,18 @@ async def create_user(
     """创建用户"""
     try:
         user: User = UserService.user_create(db, data)
-        return SuccessResponse(data=user.model_dump(), message="用户创建成功", status_code=status.HTTP_201_CREATED)
+        return SuccessResponse(data=user.model_dump(), msg="用户创建成功", code=status.HTTP_201_CREATED)
     except ValueError as e:
         logger.error(f"创建用户参数错误: {e}")
-        return ErrorResponse(message=str(e), status_code=status.HTTP_400_BAD_REQUEST)
+        return ErrorResponse(msg=str(e), code=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"创建用户异常: {e}", exc_info=True)
-        raise ExceptResponse(message="用户创建失败，请稍后重试")
+        raise ExceptResponse(msg="用户创建失败，请稍后重试")
 
 @router.get(
     path="/user/{id}", 
     summary="获取用户详情", 
-    response_model=User,
+    response_model=BaseResponse,
     status_code=status.HTTP_200_OK,
     description="获取指定用户的详细信息",
     dependencies=[Depends(get_current_user)]
@@ -141,15 +141,15 @@ async def get_user_detail(
         return SuccessResponse(data=user.model_dump())
     except ValueError as e:
         logger.error(f"获取用户详情参数错误: {e}")
-        return ErrorResponse(message=str(e), status_code=status.HTTP_404_NOT_FOUND)
+        return ErrorResponse(msg=str(e), code=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         logger.error(f"获取用户详情异常: {e}", exc_info=True)
-        raise ExceptResponse(message="获取用户详情失败，请稍后重试")
+        raise ExceptResponse(msg="获取用户详情失败，请稍后重试")
 
 @router.put(
     path="/user/{id}", 
     summary="更新用户信息", 
-    response_model=User,
+    response_model=BaseResponse,
     status_code=status.HTTP_200_OK,
     description="更新指定用户的信息",
     dependencies=[Depends(get_current_user)]
@@ -162,18 +162,18 @@ async def update_user(
     """更新用户"""
     try:
         user: User = UserService.user_update(db, id, data)
-        return SuccessResponse(data=user.model_dump(), message="用户更新成功")
+        return SuccessResponse(data=user.model_dump(), msg="用户更新成功")
     except ValueError as e:
         logger.error(f"更新用户参数错误: {e}")
-        return ErrorResponse(message=str(e), status_code=status.HTTP_400_BAD_REQUEST)
+        return ErrorResponse(msg=str(e), code=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"更新用户异常: {e}", exc_info=True)
-        raise ExceptResponse(message="更新用户失败，请稍后重试")
+        raise ExceptResponse(msg="更新用户失败，请稍后重试")
 
 @router.delete(
     path="/user/{id}", 
     summary="删除用户", 
-    response_model=dict,
+    response_model=BaseResponse,
     status_code=status.HTTP_200_OK,
     description="删除指定用户",
     dependencies=[Depends(get_current_user)]
@@ -185,10 +185,10 @@ async def delete_user(
     """删除用户"""
     try:
         user: User = UserService.user_delete(db, id)
-        return SuccessResponse(data={"deleted": True, "user": user.model_dump()}, message="用户删除成功")
+        return SuccessResponse(data={"deleted": True, "user": user.model_dump()}, msg="用户删除成功")
     except ValueError as e:
         logger.error(f"删除用户参数错误: {e}")
-        return ErrorResponse(message=str(e), status_code=status.HTTP_404_NOT_FOUND)
+        return ErrorResponse(msg=str(e), code=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         logger.error(f"删除用户异常: {e}", exc_info=True)
-        raise ExceptResponse(message="删除用户失败，请稍后重试")
+        raise ExceptResponse(msg="删除用户失败，请稍后重试")

@@ -2,7 +2,7 @@
 
 from fastapi import Query
 from sqlmodel import Field, SQLModel
-from core.base import Base
+from app.core.base import Base
 
 class UserInSchema(SQLModel):
     """用户模型"""
