@@ -1,147 +1,64 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import type { App } from 'vue'
-import { Layout, getParentLayout } from '@/utils/routerHelper'
-import { useI18n } from '@/hooks/web/useI18n'
-import { NO_RESET_WHITE_LIST } from '@/constants'
+import HomeView from '../views/home/index.vue'
 
-const { t } = useI18n()
-
-export const constantRouterMap: AppRouteRecordRaw[] = [
+const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    component: Layout,
-    redirect: '/dashboard/analysis',
-    name: 'Root',
-    meta: {
-      hidden: true
-    },
-    children: [
-      {
-        path: 'analysis',
-        component: () => import('@/views/Dashboard/Analysis.vue'),
-        name: 'Analysis',
-        meta: {
-          title: t('router.analysis'),
-          noCache: true,
-          affix: true
-        }
-      },
-      {
-        path: 'personal',
-        component: () => import('@/views/System/Personal/Personal.vue'),
-        name: 'Personal',
-        meta: {
-          title: t('router.personalCenter'),
-          hidden: true,
-          canTo: true
-        }
-      }
-    ]
-  },
-  {
-    path: '/redirect',
-    component: Layout,
-    name: 'RedirectWrap',
-    meta: {
-      hidden: true,
-      noTagsView: true
-    },
-    children: [
-      {
-        path: '/redirect/:path(.*)',
-        name: 'Redirect',
-        component: () => import('@/views/Redirect/Redirect.vue'),
-        meta: {}
-      }
-    ]
+    name: 'home',
+    component: HomeView
   },
   {
     path: '/login',
-    component: () => import('@/views/System/Login/Login.vue'),
-    name: 'Login',
-    meta: {
-      hidden: true,
-      title: t('router.login'),
-      noTagsView: true
-    }
+    name: 'login',
+    component: () => import('../views/auth/index.vue'),
+    meta: { requiresAuth: false }
   },
   {
-    path: '/404',
-    component: () => import('@/views/Error/404.vue'),
-    name: 'NoFind',
-    meta: {
-      hidden: true,
-      title: '404',
-      noTagsView: true
-    }
-  }
-]
-
-export const asyncRouterMap: AppRouteRecordRaw[] = [
-  {
-    path: '/dashboard',
-    component: Layout,
-    redirect: '/dashboard/analysis',
-    name: 'Dashboard',
-    meta: {
-      title: t('router.dashboard'),
-      icon: 'vi-ant-design:dashboard-filled',
-      alwaysShow: true
-    },
-    children: [
-      {
-        path: 'workplace',
-        component: () => import('@/views/Dashboard/Workplace.vue'),
-        name: 'Workplace',
-        meta: {
-          title: t('router.workplace'),
-          noCache: true
-        }
-      }
-    ]
+    path: '/users',
+    name: 'users',
+    component: () => import('../views/user/index.vue'),
+    meta: { requiresAuth: true }
   },
   {
-    path: '/system',
-    component: Layout,
-    redirect: '/system/admin',
-    name: 'System',
-    meta: {
-      title: t('router.system'),
-      icon: 'vi-eos-icons:role-binding',
-      alwaysShow: true
-    },
-    children: [
-      {
-        path: 'user',
-        component: () => import('@/views/System/User/User.vue'),
-        name: 'User',
-        meta: {
-          title: t('router.user')
-        }
-      }
-    ]
+    path: '/users/create',
+    name: 'createUser',
+    component: () => import('../views/user/components/add.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/users/:id/edit',
+    name: 'editUser',
+    component: () => import('../views/user/components/edit.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/users/:id',
+    name: 'userDetail',
+    component: () => import('../views/user/components/detail.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 
 const router = createRouter({
-  history: createWebHashHistory(),
-  strict: true,
-  routes: constantRouterMap as RouteRecordRaw[],
-  scrollBehavior: () => ({ left: 0, top: 0 })
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes
 })
 
-export const resetRouter = (): void => {
-  router.getRoutes().forEach((route) => {
-    const { name } = route
-    if (name && !NO_RESET_WHITE_LIST.includes(name as string)) {
-      router.hasRoute(name) && router.removeRoute(name)
-    }
-  })
-}
-
-export const setupRouter = (app: App<Element>) => {
-  app.use(router)
-}
+// 路由守卫
+router.beforeEach((to, _from, next) => {
+  const isAuthenticated = !!localStorage.getItem('token')
+  
+  if (to.meta.requiresAuth && !isAuthenticated) {
+    // 需要认证但未登录，重定向到登录页
+    next({ name: 'login' })
+  } else if (to.path === '/login' && isAuthenticated) {
+    // 已登录但访问登录页，重定向到首页
+    next({ name: 'home' })
+  } else {
+    // 其他情况正常导航
+    next()
+  }
+})
 
 export default router
