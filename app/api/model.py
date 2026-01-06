@@ -21,3 +21,8 @@ class User(Base, UserInSchema, table=True):
 class UserQuerySchema(SQLModel):
     """用户查询模型"""
     name: str | None = Query(default=None, description="昵称")
+
+
+class ChatQuerySchema(SQLModel):
+    """聊天查询模型"""
+    message: str = Field(..., description="聊天消息")

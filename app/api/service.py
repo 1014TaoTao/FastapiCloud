@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from typing import AsyncGenerator
 from fastapi_pagination import Params, Page
 from fastapi_pagination.ext.sqlmodel import paginate
 from sqlmodel import Session, select, asc
@@ -14,7 +15,8 @@ from app.core.security import (
     verify_password,
 )
 from app.core.base import JWTPayloadSchema, JWTOutSchema
-from app.api.model import User, UserQuerySchema, UserInSchema
+from app.api.model import ChatQuerySchema, User, UserQuerySchema, UserInSchema
+from app.utils.ai_util import AIClient
 
 
 class UserService:
@@ -55,7 +57,7 @@ class UserService:
         )
 
     @classmethod
-    def logout(cls, db: Session, user: User) -> None:
+    def logout(cls, user: User) -> None:
         """用户登出处理"""
         if not user.status:
             logger.warning(f"用户{user.username}已禁用")
@@ -69,7 +71,7 @@ class UserService:
         # 构建查询
         sql = select(User)
         if query.name:
-            sql = sql.where(User.name.contains(query.name))
+            sql = sql.where(User.name.contains(query.name))  # pyright: ignore[reportAttributeAccessIssue]
         sql = sql.order_by(asc(User.id))
 
         logger.info(f"查询用户列表，参数: {query}")
@@ -152,3 +154,22 @@ class UserService:
 
         logger.info(f"删除用户{existing_obj.username}成功")
         return existing_obj
+
+    @classmethod
+    async def user_chat(cls, query: ChatQuerySchema) -> AsyncGenerator[str, None]:
+        """
+        处理聊天查询
+        
+        参数:
+        - query (ChatQuerySchema): 聊天查询模型
+        
+        返回:
+        - AsyncGenerator[str, None]: 异步生成器,每次返回一个聊天响应
+        """
+        # 创建MCP客户端实例
+        mcp_client = AIClient()
+        # 处理消息
+        async for response in mcp_client.process(query.message):
+            yield response
+
+

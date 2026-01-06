@@ -1,20 +1,19 @@
 # -*- coding: utf-8 -*-
 
-from fastapi_pagination.default import Page
-from app.api.model import User
-from sqlmodel import Session
-from typing import Dict, Union
-from fastapi import Request, APIRouter, Depends, Path, status
+from typing import Dict
+from fastapi import Request, APIRouter, Depends, WebSocket, status
 from fastapi.responses import JSONResponse
-from fastapi.security import OAuth2PasswordRequestForm
-from fastapi_pagination import Page, Params
+from fastapi_pagination import Page
 
 from app.core.logger import logger
-from app.core.database import get_db, DB
+from app.core.database import DB
 from app.core.response import BaseResponse, ExceptResponse, ErrorResponse, SuccessResponse
 from app.core.base import JWTOutSchema
-from ..dependencies import get_current_user, CurrentUser
-from ..model import User, UserQuerySchema, UserInSchema
+from ..dependencies import (
+    get_current_user, PaginationParams, LoginForm,
+    CurrentUser, UserQuery, UserCreateData, UserUpdateData, UserID
+)
+from ..model import ChatQuerySchema, User
 from ..service import UserService
 
 # 创建API路由器
@@ -31,11 +30,11 @@ async def health_check() -> bool:
     status_code=status.HTTP_200_OK,
     description="用户登录接口，验证用户名和密码并返回JWT令牌"
 )
-async def login(
+async def login_controller(
     request: Request,
     db: DB,
-    login_form: OAuth2PasswordRequestForm = Depends(),
-) -> Union[JSONResponse, Dict]:
+    login_form: LoginForm,
+) -> JSONResponse | Dict:
     """用户登录"""
     try:
         # 用户认证
@@ -58,13 +57,12 @@ async def login(
     status_code=status.HTTP_200_OK,
     description="用户登出系统",
 )
-async def logout(
+async def logout_controller(
     request: Request,
-    db: DB,
     current_user: CurrentUser,
 ) -> JSONResponse:
     try:
-        UserService.logout(db, current_user)
+        UserService.logout(current_user)
         request.scope["user_id"] = None
         return SuccessResponse(data=True)
     except ValueError as e:
@@ -82,10 +80,10 @@ async def logout(
     description="获取用户分页列表，支持筛选和排序",
     dependencies=[Depends(get_current_user)]
 )
-async def get_users(
+async def get_users_controller(
     db: DB,
-    query: UserQuerySchema = Depends(),
-    params: Params = Depends(),
+    query: UserQuery,
+    params: PaginationParams,
 ) -> JSONResponse:
     try:
         users: Page[User] = UserService.user_list(db, query, params)
@@ -102,9 +100,9 @@ async def get_users(
     description="创建新用户接口",
     dependencies=[Depends(get_current_user)]
 )
-async def create_user(
+async def create_user_controller(
     db: DB,
-    data: UserInSchema = Depends(),
+    data: UserCreateData,
 ) -> JSONResponse:
     """创建用户"""
     try:
@@ -125,9 +123,9 @@ async def create_user(
     description="获取指定用户的详细信息",
     dependencies=[Depends(get_current_user)]
 )
-async def get_user_detail(
+async def get_user_detail_controller(
     db: DB,
-    id: int = Path(default=..., description="用户ID",ge=1),
+    id: UserID,
 ) -> JSONResponse:
     """获取用户详情"""
     try:
@@ -148,10 +146,10 @@ async def get_user_detail(
     description="更新指定用户的信息",
     dependencies=[Depends(get_current_user)]
 )
-async def update_user(
-    data: UserInSchema = Depends(),
-    id: int = Path(default=..., description="用户ID",ge=1),
-    db: Session = Depends(get_db),
+async def update_user_controller(
+    data: UserUpdateData,
+    id: UserID,
+    db: DB,
 ) -> JSONResponse:
     """更新用户"""
     try:
@@ -172,9 +170,9 @@ async def update_user(
     description="删除指定用户",
     dependencies=[Depends(get_current_user)]
 )
-async def delete_user(
+async def delete_user_controller(
     db: DB,
-    id: int = Path(default=..., description="用户ID",ge=1),
+    id: UserID,
 ) -> JSONResponse:
     """删除用户"""
     try:
@@ -186,3 +184,37 @@ async def delete_user(
     except Exception as e:
         logger.error(f"删除用户异常: {e}", exc_info=True)
         raise ExceptResponse(msg="删除用户失败，请稍后重试")
+
+@router.websocket(
+    "/chat/ws", 
+    name="WebSocket聊天"
+)
+async def websocket_chat_controller(
+    websocket: WebSocket,
+):
+    """
+    WebSocket聊天接口
+    
+    ws://127.0.0.1:8001/api/chat/ws
+    """
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            # 流式发送响应
+            try:
+                async for chunk in UserService.user_chat(query=ChatQuerySchema(message=data)):
+                    if chunk:
+                        await websocket.send_text(chunk)
+            except Exception as e:
+                logger.error(f"处理聊天查询出错: {str(e)}")
+                await websocket.send_text(f"抱歉，处理您的请求时出现了错误: {str(e)}")
+    except Exception as e:
+        logger.error(f"WebSocket聊天出错: {str(e)}")
+    finally:
+        try:
+            # 检查WebSocket连接状态，避免重复关闭已关闭的连接
+            if websocket.client_state != websocket.client_state.DISCONNECTED:
+                await websocket.close()
+        except Exception as e:
+            logger.debug(f"WebSocket关闭时发生异常(预期行为，服务可能正在关闭): {str(e)}")

@@ -16,20 +16,11 @@ class SuccessResponse(JSONResponse):
         msg: str = "成功",
         data: Any = None,
     ) -> None:
-        """
-        初始化成功响应
-        
-        Args:
-            data: 响应数据
-            msg: 响应消息
-            code: HTTP状态码
-        """
         content = BaseResponse(
             code=code,
             msg=msg,
             data=data
         ).model_dump()
-        
         super().__init__(content=content, status_code=code)
 
 
@@ -42,20 +33,11 @@ class ErrorResponse(JSONResponse):
         msg: str = "失败",
         data: Any = None,
     ) -> None:
-        """
-        初始化错误响应
-        
-        Args:
-            data: 响应数据
-            msg: 响应消息
-            code: HTTP状态码
-        """
         content = BaseResponse(
             code=code,
             msg=msg,
             data=data
         ).model_dump()
-        
         super().__init__(content=content, status_code=code)
 
 
@@ -68,18 +50,9 @@ class ExceptResponse(HTTPException):
         msg: str = "服务异常",
         data: Any = None,
     ) -> None:
-        """
-        初始化异常响应
-        
-        Args:
-            data: 响应数据
-            msg: 响应消息
-            code: HTTP状态码
-        """
         content = BaseResponse(
             code=code,
             msg=msg,
             data=data
         ).model_dump()
-        
         super().__init__(status_code=code, detail=content)
